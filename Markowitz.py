@@ -149,6 +149,7 @@ class MeanVarOpt:
             self.G[rowoffset + 3, zvarid] = -1.0
 
     def solve(self):
+        solvers.options['show_progress'] = False
         sol = solvers.qp(self.P, matrix(0.0, (self.ncols, 1)), self.G, self.h, self.A, self.b)
         return sol['x'][:3]
 
