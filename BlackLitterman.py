@@ -38,18 +38,28 @@ if __name__ == "__main__":
     returns  = matrix([0.1073, 0.0737, 0.0627])
     covariance = matrix([[2.78e-02,  3.87e-03,  2.07e-04], [3.87e-03,  1.11e-02, -1.95e-04], [2.07e-04, -1.95e-04,  1.16e-03]])
 
-    views_portfolios = matrix([1.0, -1.0, 0.0]).T
-    views_outcomes = matrix([0.5])
-    views_variance = matrix([0.15])
-    return_confidence = 1.0 / 24.0
+    views_portfolios = matrix([[0.0, 0.0, 1.0], [1.0, -1.0, 0.0]]).T
+    views_outcomes = matrix([0.02, 0.05])
+    views_variance = matrix([0.00001, 0.001])
+    return_confidence = 0.1
     risk_free_rate = 0.01
     market_weights = matrix([0.5, 0.4, 0.1])
     lagrange_multiplier = 1.25
     bl = BlackLittermanEstimate(returns, covariance,  views_portfolios, views_outcomes, views_variance, return_confidence, risk_free_rate, market_weights, lagrange_multiplier)
-    #print(bl)
+    print("bl expected returns")
+    print(100.0 * bl[0])
 
     hist_model = MeanVarOpt(returns, covariance, 0.07)
+    print("hist mvo:")
     print(hist_model.solve())
 
-    bl_model = MeanVarOpt(bl[0], bl[1], 0.07)
+    print(bl[0])
+    print(bl[1])
+
+    bl_model = MeanVarOpt(bl[0], covariance, 0.07)
+    print("bl model:")
+    print(bl_model.solve())
+
+    fullbl_model = MeanVarOpt(bl[0], bl[1], 0.07)
+    print("full bl model:")
     print(bl_model.solve())
