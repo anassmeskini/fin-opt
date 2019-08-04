@@ -4,7 +4,7 @@ from cvxopt import matrix, solvers
 
 class MeanVarOpt:
     """Class that manages the Markowitz mean variance model"""
-    def __init__(self, returns, std_deviation, correlation, min_ret):
+    def __init__(self, returns, covariance, min_ret):
         self.nsec = len(returns)
 
         self.G = matrix(0.0, (1, self.nsec))
@@ -15,12 +15,7 @@ class MeanVarOpt:
         self.A = matrix(1.0, (1, self.nsec))
         self.b = matrix([1.0])
 
-        self.P = matrix(0.0, (self.nsec, self.nsec))
-        for i in range(self.nsec):
-            for j in range(self.nsec - i):
-                k = i + j
-                self.P[i,k] = correlation[i,k] * std_deviation[i] * std_deviation[k]
-                self.P[k,i] = self.P[i,k]
+        self.P = covariance
 
         self.G_nrows = 1
         self.ncols = self.nsec
@@ -159,10 +154,9 @@ class MeanVarOpt:
 
 if __name__ == "__main__":
     returns  = matrix([0.1073, 0.0737, 0.0627])
-    std_dev = matrix([0.1667, 0.1055, 0.034])
-    correlation = matrix([[1.0, 0.2199, 0.0366], [0.2199, 1, -0.0545], [0.0366, -0.0545, 1.0]])
+    covariance = matrix([[2.78e-02,  3.87e-03,  2.07e-04], [3.87e-03,  1.11e-02, -1.95e-04], [2.07e-04, -1.95e-04,  1.16e-03]])
 
-    x = MeanVarOpt(returns, std_dev, correlation, 0.07)
+    x = MeanVarOpt(returns, covariance, 0.07)
     x.addWeightBounds(0.1, 0.45)
     #x.addSectorLimit([2], 0.5)
     x.addTurnoverLimit([0.33, 0.33, 0.33], 0.3)
