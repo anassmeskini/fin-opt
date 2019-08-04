@@ -133,8 +133,8 @@ class MeanVarOpt:
             yvarid = oldncols + 2 * i
             zvarid = oldncols + 2 * i + 1
 
-            self.G[0,yvarid] = sell_cost[i]
-            self.G[0,zvarid] = buy_cost[i]
+            self.G[0,yvarid] = buy_cost[i]
+            self.G[0,zvarid] = sell_cost[i]
 
             self.G[rowoffset, i] = 1.0
             self.G[rowoffset, yvarid] = -1.0
@@ -149,7 +149,7 @@ class MeanVarOpt:
             self.G[rowoffset + 3, zvarid] = -1.0
 
     def solve(self):
-        solvers.options['show_progress'] = False
+        #solvers.options['show_progress'] = False
         sol = solvers.qp(self.P, matrix(0.0, (self.ncols, 1)), self.G, self.h, self.A, self.b)
         return sol['x'][:3]
 

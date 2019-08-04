@@ -103,7 +103,7 @@ class MinL1RiskModel:
 
     def addTurnoverLimit(self, reference_weights, max_change):
         newcols = 2 * self.nsec
-        newGrows = 2 * self.nsec + 1
+        newGrows = 4 * self.nsec + 1
         Grows = self.G.size[0]
         Arows = self.A.size[0]
         oldncols = self.ncols
@@ -120,7 +120,7 @@ class MinL1RiskModel:
         self.ncols += newcols
         # add new rows to G
         offset = self.G.size[0]
-        self.G = matrix([self.G, matrix(0.0, (2 * self.nsec + 1, self.ncols))])
+        self.G = matrix([self.G, matrix(0.0, (newGrows, self.ncols))])
         self.h = matrix([self.h, matrix(0.0, (newGrows, 1))])
 
         lastrow = self.G.size[0] - 1
@@ -136,18 +136,66 @@ class MinL1RiskModel:
             self.G[offset + 1, wvarid] = -1.0
             self.h[offset + 1] = -reference_weights[i]
 
-            offset += 2
+            self.G[offset + 2, vvarid] = -1.0
+
+            self.G[offset + 3, wvarid] = -1.0
+
+            offset += 4
 
             self.G[lastrow, vvarid] = 1.0
             self.G[lastrow, wvarid] = 1.0
 
         self.h[lastrow] = max_change
 
+    def addTransactionCosts(self, reference_weights, sell_cost, buy_cost):
+            newcols = 2 * self.nsec
+            newGrows = 4 * self.nsec
+            Grows = self.G.size[0]
+            Arows = self.A.size[0]
+            oldncols = self.ncols
+    
+            assert oldncols == self.G.size[1]
+    
+            # add new columns
+            self.G = matrix([[self.G], [matrix(0.0, (Grows, newcols))]])
+    
+            self.A = matrix([[self.A], [matrix(0.0, (Arows, newcols))]])
+    
+            self.c = matrix([self.c, matrix(0.0, (newcols, 1))])
+    
+            self.ncols += newcols
+            # add new rows to G
+            offset = self.G.size[0]
+            self.G = matrix([self.G, matrix(0.0, (newGrows, self.ncols))])
+            self.h = matrix([self.h, matrix(0.0, (newGrows, 1))])
+    
+            for i in range(self.nsec):
+                vvarid = oldncols + 2 * i
+                wvarid = oldncols + 2 * i + 1
+
+                self.G[0, vvarid] = buy_cost[i]
+                self.G[0, wvarid] = sell_cost[i]
+    
+                self.G[offset, i] = 1.0
+                self.G[offset, vvarid] = -1.0
+                self.h[offset] = reference_weights[i]
+    
+                self.G[offset + 1, i] = -1.0
+                self.G[offset + 1, wvarid] = -1.0
+                self.h[offset + 1] = -reference_weights[i]
+
+                self.G[offset + 2, vvarid] = -1.0
+
+                self.G[offset + 3, wvarid] = -1.0
+
+                offset += 4
+
 if __name__ == "__main__":
     historical_returns  = matrix([[0.1073, 0.0737, 0.0627], [0.085, 0.053, 0.077], [0.2, 0.08, 0.04]])
 
     x = MinL1RiskModel(historical_returns, 0.07, 0.0, 1.0)
-    x.addTurnoverLimit([0.33, 0.33, 0.33], 0.2)
+    #x.addTurnoverLimit([0.33, 0.33, 0.33], 0.2)
+    x.addTransactionCosts([0.33, 0.33, 0.33], [0.01, 0.02, 0.005], [0.01, 0.02, 0.005])
     x.write()
     a = x.solve()
     print(a)
