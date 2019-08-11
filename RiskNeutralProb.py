@@ -1,5 +1,6 @@
 from cvxopt import matrix, solvers
-from math import pow
+import numpy as np
+from matplotlib import pyplot as plt
 
 # TODO int p = 1
 
@@ -8,26 +9,26 @@ class RiskNeutralProbSpline:
 
     def __init__(self, call_strikes, call_prices, price_range, risk_free_rate):
         assert len(call_prices) == len(call_strikes)
+        self.price_range = price_range
 
-        min_underlying_price = price_range[0]
-        max_underlying_price = price_range[1]
+        min_underlying_price = self.price_range[0]
+        max_underlying_price = self.price_range[1]
 
         ninterv = len(call_prices) + 1
 
         # sort by ascending order
-        pairs = []
+        self.pairs = []
         for i in range(len(call_prices)):
-            pairs.append((call_strikes[i], call_prices[i]))
+            self.pairs.append((call_strikes[i], call_prices[i]))
         takeFirst = lambda x : x[0]
-        pairs.sort(key=takeFirst)
+        self.pairs.sort(key=takeFirst)
 
         # the objective coefficients for (alpha_k, beta_k, gamma_k, delta_k) 
-        # corresoending to the strike k is given by the symertic matrix:
+        # corresoending to the strike k is given by the symmertic matrix:
         # coef(k, 5)^2   coef(k, 5) * coef(k, 4)  coef(k, 5) * coef(k, 3) coef(k, 5) * coef(k,2)
         #     ---               coef(k,4)^2      coef(k, 4) * coef(k, 3) coef(k, 4) * coef(k,2)    
         #     ---                  ---                coef(k,3)^2        coef(k, 3) * coef(k,2)    
         #     ---                  ---                    ---                coef(k,2)^2
-        #coef = lambda strike, i : ( (max_underlying_price ** i - strike ** i) / i - strike * (max_underlying_price ** (i-1) - strike ** (i-1)) / (i - 1) ) / (1 + risk_free_rate)
         def coef(strike, i):
             c1 = (max_underlying_price ** i - strike ** i) / i 
             c2 = (max_underlying_price ** (i-1) - strike ** (i-1)) / (i - 1)
@@ -58,8 +59,8 @@ class RiskNeutralProbSpline:
         self.h = matrix(0.0, (ninterv + 2, 1))
 
         for i in range(ninterv-1):
-            strike = pairs[i][0]
-            price = pairs[i][1]
+            strike = self.pairs[i][0]
+            price = self.pairs[i][1]
 
             coef_alpha = coef(strike, 5)
             coef_beta = coef(strike, 4)
@@ -153,12 +154,12 @@ class RiskNeutralProbSpline:
             if i == ninterv-1:
                 rightpt = max_underlying_price
             else:
-                rightpt = pairs[i][0]
+                rightpt = self.pairs[i][0]
 
             if i == 0:
                 leftpt = min_underlying_price
             else:
-                leftpt = pairs[i-1][0]
+                leftpt = self.pairs[i-1][0]
 
             assert rightpt > 0.0
             assert leftpt > 0.0
@@ -226,19 +227,62 @@ class RiskNeutralProbSpline:
                     str += "- "
         print(str)
 
+    def plot(self):
+        def evalCubicPoly(coefs, points):
+            y = coefs[3] * np.ones(len(points))
+            y += coefs[2] * points
+            y += coefs[1] * points ** 2
+            y += coefs[0] * points ** 3
+            return y
+
+        ninterv = len(self.pairs) + 1
+        x = np.zeros(0)
+        y = np.zeros(0)
+        strikes = np.zeros(len(self.pairs) + 2)
+
+        for i in range(ninterv):
+            rightpt = -1.0
+            leftpt = -1.0
+            if i == 0:
+                leftpt = self.price_range[0]
+                rightpt = self.pairs[0][0]
+            elif i == ninterv-1:
+                leftpt = self.pairs[len(self.pairs)-1][0]
+                rightpt = self.price_range[1]
+            else:
+                leftpt = self.pairs[i-1][0]
+                rightpt = self.pairs[i][0]
+
+            if i < ninterv - 1:
+                strikes[i] = self.pairs[i][0]
+
+            xtmp = np.linspace(leftpt, rightpt, 10)
+            coefs = np.array(self.sol[:(i+1)*4])
+            ytmp = evalCubicPoly(coefs, xtmp)
+            x = np.append(x, xtmp)
+            y = np.append(y, ytmp)
+
+        strikes[len(strikes) - 2] = self.price_range[0]
+        strikes[len(strikes) - 1] = self.price_range[1]
+        plt.plot(strikes, np.zeros(len(strikes)), 'r+')
+        plt.plot(x, y)
+        plt.show()
+
+
+
     def solve(self):
-        sol = solvers.qp(self.P, self.q, self.G, self.h, self.A, self.b)
-        return sol['x']
+        self.sol = solvers.qp(self.P, self.q, self.G, self.h, self.A, self.b)['x']
+        return self.sol
 
-call_strikes = [2.0, 15.0, 23.0, 50.0]
-call_prices = [1.0, 9.0, 10.0, 40.0]
-x = RiskNeutralProbSpline(call_strikes, call_prices, [0.5, 30], 0.01)
-x.write()
-sol = x.solve()
-print(sol)
+    # TODO
+    #def getRisisuals(self):
+    #def getPrice():
 
-pol = lambda a, b, c, d, x : a*x**3 + b*x**2 + c*x + d
-strike = call_strikes[1]
-print("strike {} prob {}".format(strike, pol(sol[0], sol[1], sol[2], sol[3], strike)))
-strike = call_strikes[2]
-print("strike {} prob {}".format(strike, pol(sol[4], sol[5], sol[6], sol[7], strike)))
+if __name__ == "__main__":
+    call_strikes = [2.0, 15.0, 23.0, 27.0]
+    call_prices = [1.0, 9.0, 10.0, 40.0]
+    x = RiskNeutralProbSpline(call_strikes, call_prices, [1.8, 27.1], 0.01)
+    x.write()
+    sol = x.solve()
+    print(sol)
+    x.plot()
